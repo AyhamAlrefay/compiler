@@ -1,10 +1,59 @@
 
-grammar Dart_Parser;
+parser grammar Dart_Parser;
+options { tokenVocab= Dart_Lexer; }
+//@parser::header{
+//import java.util.Stack;
+//}
+//
+//
+//@parser::members {
+//  static String filePath = null;
+//  static boolean errorHasOccurred = false;
+//
+//  /// Must be invoked before the first error is reported for a library.
+//  /// Will print the name of the library and indicate that it has errors.
+//  static void prepareForErrors() {
+//    errorHasOccurred = true;
+//    System.err.println("Syntax error in " + filePath + ":");
+//  }
+//
+//  /// Parse library, return true if success, false if errors occurred.
+//  public boolean parseLibrary(String filePath) throws RecognitionException {
+//    this.filePath = filePath;
+//    errorHasOccurred = false;
+//    libraryDefinition();
+//    return !errorHasOccurred;
+//  }
+//
+//  // Enable the parser to treat AWAIT/YIELD as keywords in the body of an
+//  // `async`, `async*`, or `sync*` function. Access via methods below.
+//  private Stack<Boolean> asyncEtcAreKeywords = new Stack<Boolean>();
+//  { asyncEtcAreKeywords.push(false); }
+//
+//  // Use this to indicate that we are now entering an `async`, `async*`,
+//  // or `sync*` function.
+//  void startAsyncFunction() { asyncEtcAreKeywords.push(true); }
+//
+//  // Use this to indicate that we are now entering a function which is
+//  // neither `async`, `async*`, nor `sync*`.
+//  void startNonAsyncFunction() { asyncEtcAreKeywords.push(false); }
+//
+//  // Use this to indicate that we are now leaving any funciton.
+//  void endFunction() { asyncEtcAreKeywords.pop(); }
+//
+//  // Whether we can recognize AWAIT/YIELD as an identifier/typeIdentifier.
+//  boolean asyncEtcPredicate(int tokenId) {
+//    if (tokenId == AWAIT || tokenId == YIELD) {
+//      return !asyncEtcAreKeywords.peek();
+//    }
+//    return false;
+//  }
+//}
+
 
 // ---------------------------------------- Grammar rules.
 libraryDefinition
-    :    SCRIPT_TAG?
-         libraryName?
+    :    libraryName?
          importOrExport*
          partDirective*
          (metadata topLevelDefinition)*
@@ -16,17 +65,17 @@ topLevelDefinition
     |    extensionDeclaration
     |    enumType
     |    typeAlias
-    |    EXTERNAL functionSignature ';'
-    |    EXTERNAL getterSignature ';'
-    |    EXTERNAL setterSignature ';'
-    |    EXTERNAL finalVarOrType identifierList ';'
+    |    EXTERNAL functionSignature SEMICOLON
+    |    EXTERNAL getterSignature SEMICOLON
+    |    EXTERNAL setterSignature SEMICOLON
+    |    EXTERNAL finalVarOrType identifierList SEMICOLON
     |    getterSignature functionBody
     |    setterSignature functionBody
     |    functionSignature functionBody
-    |    (FINAL | CONST) type? staticFinalDeclarationList ';'
-    |    LATE FINAL type? initializedIdentifierList ';'
-    |    LATE? varOrType identifier ('=' expression)?
-         (',' initializedIdentifier)* ';'
+    |    (FINAL | CONST) type? staticFinalDeclarationList SEMICOLON
+    |    LATE FINAL type? initializedIdentifierList SEMICOLON
+    |    LATE? varOrType identifier (EQUAL expression)?
+         (COMMA initializedIdentifier)* SEMICOLON
     ;
 declaredIdentifier
     :    COVARIANT? finalConstVarOrType identifier
@@ -45,24 +94,24 @@ varOrType
     |    type
     ;
 initializedIdentifier
-    :    identifier ('=' expression)?
+    :    identifier (EQUAL expression)?
     ;
 initializedIdentifierList
-    :    initializedIdentifier (',' initializedIdentifier)*
+    :    initializedIdentifier (COMMA initializedIdentifier)*
     ;
 functionSignature
     :    type? identifierNotFUNCTION formalParameterPart
     ;
 functionBodyPrefix
-    :    ASYNC? '=>'
-    |    (ASYNC | ASYNC '*' | SYNC '*')? LBRACE
+    :    ASYNC? EGT
+    |    (ASYNC | ASYNC STAR | SYNC STAR)? LBRACE
     ;
 functionBody
-    :    '=>' { startNonAsyncFunction(); } expression { endFunction(); } ';'
+    :    EGT { startNonAsyncFunction(); } expression { endFunction(); } SEMICOLON
     |    { startNonAsyncFunction(); } block { endFunction(); }
-    |    ASYNC '=>'
-         { startAsyncFunction(); } expression { endFunction(); } ';'
-    |    (ASYNC | ASYNC '*' | SYNC '*')
+    |    ASYNC EGT
+         { startAsyncFunction(); } expression { endFunction(); } SEMICOLON
+    |    (ASYNC | ASYNC STAR | SYNC STAR)
          { startAsyncFunction(); } block { endFunction(); }
     ;
 block
@@ -72,23 +121,23 @@ formalParameterPart
     :    typeParameters? formalParameterList
     ;
 formalParameterList
-    :    '(' ')'
-    |    '(' normalFormalParameters ','? ')'
-    |    '(' normalFormalParameters ',' optionalOrNamedFormalParameters ')'
-    |    '(' optionalOrNamedFormalParameters ')'
+    :    PARENTHESES_OPEN PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN normalFormalParameters COMMA? PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN normalFormalParameters COMMA optionalOrNamedFormalParameters PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN optionalOrNamedFormalParameters PARENTHESES_CLOSE
     ;
 normalFormalParameters
-    :    normalFormalParameter (',' normalFormalParameter)*
+    :    normalFormalParameter (COMMA normalFormalParameter)*
     ;
 optionalOrNamedFormalParameters
     :    optionalPositionalFormalParameters
     |    namedFormalParameters
     ;
 optionalPositionalFormalParameters
-    :    '[' defaultFormalParameter (',' defaultFormalParameter)* ','? ']'
+    :    SQUARE_BRACJETS_OPEN defaultFormalParameter (COMMA defaultFormalParameter)* COMMA? SQUARE_BRACJETS_CLOSE
     ;
 namedFormalParameters
-    :    LBRACE defaultNamedParameter (',' defaultNamedParameter)* ','? RBRACE
+    :    LBRACE defaultNamedParameter (COMMA defaultNamedParameter)* COMMA? RBRACE
     ;
 normalFormalParameter
     :    metadata normalFormalParameterNoMetadata
@@ -101,7 +150,7 @@ normalFormalParameterNoMetadata
     ;
 // NB: It is an anomaly that a functionFormalParameter cannot be FINAL.
 functionFormalParameter
-    :    COVARIANT? type? identifierNotFUNCTION formalParameterPart '?'?
+    :    COVARIANT? type? identifierNotFUNCTION formalParameterPart QUESTION_MARK?
     ;
 simpleFormalParameter
     :    declaredIdentifier
@@ -109,16 +158,16 @@ simpleFormalParameter
     ;
 // NB: It is an anomaly that VAR can be a return type (`var this.x()`).
 fieldFormalParameter
-    :    finalConstVarOrType? THIS '.' identifier (formalParameterPart '?'?)?
+    :    finalConstVarOrType? THIS DOT identifier (formalParameterPart QUESTION_MARK?)?
     ;
 superFormalParameter
-    :    type? SUPER '.' identifier (formalParameterPart '?'?)?
+    :    type? SUPER DOT identifier (formalParameterPart QUESTION_MARK?)?
     ;
 defaultFormalParameter
-    :    normalFormalParameter ('=' expression)?
+    :    normalFormalParameter (EQUAL expression)?
     ;
 defaultNamedParameter
-    :    REQUIRED? normalFormalParameter ((':' | '=') expression)?
+    :    REQUIRED? normalFormalParameter ((COLON | EQUAL) expression)?
     ;
 typeWithParameters
     :    typeIdentifier typeParameters?
@@ -139,10 +188,10 @@ interfaces
     ;
 classMemberDefinition
     :    methodSignature functionBody
-    |    declaration ';'
+    |    declaration SEMICOLON
     ;
 mixinApplicationClass
-    :    typeWithParameters '=' mixinApplication ';'
+    :    typeWithParameters EQUAL mixinApplication SEMICOLON
     ;
 mixinDeclaration
     :    MIXIN typeIdentifier typeParameters?
@@ -191,26 +240,26 @@ declaration
     |    constructorSignature (redirection | initializers)?
     ;
 staticFinalDeclarationList
-    :    staticFinalDeclaration (',' staticFinalDeclaration)*
+    :    staticFinalDeclaration (COMMA staticFinalDeclaration)*
     ;
 staticFinalDeclaration
-    :    identifier '=' expression
+    :    identifier EQUAL expression
     ;
 operatorSignature
     :    type? OPERATOR operator formalParameterList
     ;
 operator
-    :    '~'
+    :    TILDE
     |    binaryOperator
-    |    '[' ']'
-    |    '[' ']' '='
+    |    SQUARE_BRACJETS_OPEN SQUARE_BRACJETS_CLOSE
+    |    SQUARE_BRACJETS_OPEN SQUARE_BRACJETS_CLOSE EQUAL
     ;
 binaryOperator
     :    multiplicativeOperator
     |    additiveOperator
     |    shiftOperator
     |    relationalOperator
-    |    '=='
+    |    EQUAL_EQUAL
     |    bitwiseOperator
     ;
 getterSignature
@@ -223,22 +272,22 @@ constructorSignature
     :    constructorName formalParameterList
     ;
 constructorName
-    :    typeIdentifier ('.' (identifier | NEW))?
+    :    typeIdentifier (DOT (identifier | NEW))?
     ;
 redirection
-    :    ':' THIS ('.' (identifier | NEW))? arguments
+    :    COLON THIS (DOT (identifier | NEW))? arguments
     ;
 initializers
-    :    ':' initializerListEntry (',' initializerListEntry)*
+    :    COLON initializerListEntry (COMMA initializerListEntry)*
     ;
 initializerListEntry
     :    SUPER arguments
-    |    SUPER '.' (identifier | NEW) arguments
+    |    SUPER DOT (identifier | NEW) arguments
     |    fieldInitializer
     |    assertion
     ;
 fieldInitializer
-    :    (THIS '.')? identifier '=' initializerExpression
+    :    (THIS DOT)? identifier EQUAL initializerExpression
     ;
 initializerExpression
     :    conditionalExpression
@@ -248,7 +297,7 @@ factoryConstructorSignature
     :    CONST? FACTORY constructorName formalParameterList
     ;
 redirectingFactoryConstructorSignature
-    :    CONST? FACTORY constructorName formalParameterList '='
+    :    CONST? FACTORY constructorName formalParameterList EQUAL
          constructorDesignation
     ;
 constantConstructorSignature
@@ -259,22 +308,22 @@ mixinApplication
     ;
 enumType
     :    ENUM typeIdentifier typeParameters? mixins? interfaces? LBRACE
-         enumEntry (',' enumEntry)* (',')?
-         (';' (metadata classMemberDefinition)*)?
+         enumEntry (COMMA enumEntry)* (COMMA)?
+         (SEMICOLON (metadata classMemberDefinition)*)?
          RBRACE
     ;
 enumEntry
     :    metadata identifier argumentPart?
-    |    metadata identifier typeArguments? '.' identifier arguments
+    |    metadata identifier typeArguments? DOT identifier arguments
     ;
 typeParameter
     :    metadata typeIdentifier (EXTENDS typeNotVoid)?
     ;
 typeParameters
-    :    '<' typeParameter (',' typeParameter)* '>'
+    :    LESS_THAN typeParameter (COMMA typeParameter)* GREATER_THAN
     ;
 metadata
-    :    ('@' metadatum)*
+    :    (AT metadatum)*
     ;
 metadatum
     :    constructorDesignation arguments
@@ -296,7 +345,7 @@ expressionWithoutCascade
     |    conditionalExpression
     ;
 expressionList
-    :    expression (',' expression)*
+    :    expression (COMMA expression)*
     ;
 primary
     :    thisExpression
@@ -305,15 +354,15 @@ primary
     |    newExpression
     |    constructorInvocation
     |    functionPrimary
-    |    '(' expression ')'
+    |    PARENTHESES_OPEN expression PARENTHESES_CLOSE
     |    literal
     |    identifier
     |    constructorTearoff
     |    switchExpression
     ;
 constructorInvocation
-    :    typeName typeArguments '.' NEW arguments
-    |    typeName '.' NEW arguments
+    :    typeName typeArguments DOT NEW arguments
+    |    typeName DOT NEW arguments
     ;
 literal
     :    nullLiteral
@@ -347,22 +396,22 @@ setOrMapLiteral
     :    CONST? typeArguments? LBRACE elements? RBRACE
     ;
 listLiteral
-    :    CONST? typeArguments? '[' elements? ']'
+    :    CONST? typeArguments? SQUARE_BRACJETS_OPEN elements? SQUARE_BRACJETS_CLOSE
     ;
 recordLiteral
     :    CONST? recordLiteralNoConst
     ;
 recordLiteralNoConst
-    :    '(' ')'
-    |    '(' expression ',' ')'
-    |    '(' label expression ','? ')'
-    |    '(' recordField ',' recordField (',' recordField)* ','? ')'
+    :    PARENTHESES_OPEN PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN expression COMMA PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN label expression COMMA? PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN recordField COMMA recordField (COMMA recordField)* COMMA? PARENTHESES_CLOSE
     ;
 recordField
     :    label? expression
     ;
 elements
-    : element (',' element)* ','?
+    : element (COMMA element)* COMMA?
     ;
 element
     : expressionElement
@@ -375,26 +424,26 @@ expressionElement
     : expression
     ;
 mapElement
-    : expression ':' expression
+    : expression COLON expression
     ;
 spreadElement
-    : ('...' | '...?') expression
+    : (ELLIPSIS | ELLIPSIS_QUESTION_MARK) expression
     ;
 ifElement
     : ifCondition element (ELSE element)?
     ;
 forElement
-    : AWAIT? FOR '(' forLoopParts ')' element
+    : AWAIT? FOR PARENTHESES_OPEN forLoopParts PARENTHESES_CLOSE element
     ;
 constructorTearoff
-    :    typeName typeArguments? '.' NEW
+    :    typeName typeArguments? DOT NEW
     ;
 switchExpression
-    :    SWITCH '(' expression ')'
-         LBRACE switchExpressionCase (',' switchExpressionCase)* ','? RBRACE
+    :    SWITCH PARENTHESES_OPEN expression PARENTHESES_CLOSE
+         LBRACE switchExpressionCase (COMMA switchExpressionCase)* COMMA? RBRACE
     ;
 switchExpressionCase
-    :    guardedPattern '=>' expression
+    :    guardedPattern EGT expression
     ;
 throwExpression
     :    THROW expression
@@ -406,19 +455,19 @@ functionExpression
     :    formalParameterPart functionExpressionBody
     ;
 functionExpressionBody
-    :    '=>' { startNonAsyncFunction(); } expression { endFunction(); }
-    |    ASYNC '=>' { startAsyncFunction(); } expression { endFunction(); }
+    :    EGT { startNonAsyncFunction(); } expression { endFunction(); }
+    |    ASYNC EGT { startAsyncFunction(); } expression { endFunction(); }
     ;
 functionExpressionBodyPrefix
-    :    ASYNC? '=>'
+    :    ASYNC? EGT
     ;
 functionExpressionWithoutCascade
     :    formalParameterPart functionExpressionWithoutCascadeBody
     ;
 functionExpressionWithoutCascadeBody
-    :    '=>' { startNonAsyncFunction(); }
+    :    EGT { startNonAsyncFunction(); }
          expressionWithoutCascade { endFunction(); }
-    |    ASYNC '=>' { startAsyncFunction(); }
+    |    ASYNC EGT { startAsyncFunction(); }
          expressionWithoutCascade { endFunction(); }
     ;
 functionPrimary
@@ -426,11 +475,11 @@ functionPrimary
     ;
 functionPrimaryBody
     :    { startNonAsyncFunction(); } block { endFunction(); }
-    |    (ASYNC | ASYNC '*' | SYNC '*')
+    |    (ASYNC | ASYNC STAR | SYNC STAR)
          { startAsyncFunction(); } block { endFunction(); }
     ;
 functionPrimaryBodyPrefix
-    : (ASYNC | ASYNC '*' | SYNC '*')? LBRACE
+    : (ASYNC | ASYNC STAR | SYNC STAR)? LBRACE
     ;
 thisExpression
     :    THIS
@@ -442,23 +491,23 @@ constObjectExpression
     :    CONST constructorDesignation arguments
     ;
 arguments
-    :    '(' (argumentList ','?)? ')'
+    :    PARENTHESES_OPEN (argumentList COMMA?)? PARENTHESES_CLOSE
     ;
 argumentList
-    :    argument (',' argument)*
+    :    argument (COMMA argument)*
     ;
 argument
     :    label? expression
     ;
 cascade
-    :     cascade '..' cascadeSection
-    |     conditionalExpression ('?..' | '..') cascadeSection
+    :     cascade DOT_DOT cascadeSection
+    |     conditionalExpression (QUESTION_MARK_DOT_DOT | DOT_DOT) cascadeSection
     ;
 cascadeSection
     :    cascadeSelector cascadeSectionTail
     ;
 cascadeSelector
-    :    '[' expression ']'
+    :    SQUARE_BRACJETS_OPEN expression SQUARE_BRACJETS_CLOSE
     |    identifier
     ;
 cascadeSectionTail
@@ -469,44 +518,44 @@ cascadeAssignment
     :    assignmentOperator expressionWithoutCascade
     ;
 assignmentOperator
-    :    '='
+    :    EQUAL
     |    compoundAssignmentOperator
     ;
 compoundAssignmentOperator
-    :    '*='
-    |    '/='
-    |    '~/='
-    |    '%='
-    |    '+='
-    |    '-='
-    |    '<<='
-    |    '>' '>' '>' '='
-    |    '>' '>' '='
-    |    '&='
-    |    '^='
-    |    '|='
-    |    '??='
+    :    STAR_EQUAL
+    |    SLASH_EQUAL
+    |    TILDE_SLASH_EQUAL
+    |    PERCENT_EQUAL
+    |    ADD_EQUAL
+    |    MINUS_EQUAL
+    |    LESS_LESS_EQUAL
+    |    GREATER_THAN GREATER_THAN GREATER_THAN EQUAL
+    |    GREATER_THAN GREATER_THAN EQUAL
+    |    AND_EQUAL
+    |    CARET_EQUAL
+    |    BAR_EQUAL
+    |    QUESTION_QUESTION_EQUAL
     ;
 conditionalExpression
     :    ifNullExpression
-         ('?' expressionWithoutCascade ':' expressionWithoutCascade)?
+         (QUESTION_MARK expressionWithoutCascade COLON expressionWithoutCascade)?
     ;
 ifNullExpression
-    :    logicalOrExpression ('??' logicalOrExpression)*
+    :    logicalOrExpression (QUESTION_MARK_QUESTION_MARK logicalOrExpression)*
     ;
 logicalOrExpression
-    :    logicalAndExpression ('||' logicalAndExpression)*
+    :    logicalAndExpression (BAR_BAR logicalAndExpression)*
     ;
 logicalAndExpression
-    :    equalityExpression ('&&' equalityExpression)*
+    :    equalityExpression (AND_AND equalityExpression)*
     ;
 equalityExpression
     :    relationalExpression (equalityOperator relationalExpression)?
     |    SUPER equalityOperator relationalExpression
     ;
 equalityOperator
-    :    '=='
-    |    '!='
+    :    EQUAL_EQUAL
+    |    NOT_EQUAL
     ;
 relationalExpression
     :    bitwiseOrExpression
@@ -514,54 +563,54 @@ relationalExpression
     |    SUPER relationalOperator bitwiseOrExpression
     ;
 relationalOperator
-    :    '>' '='
-    |    '>'
-    |    '<='
-    |    '<'
+    :    GREATER_THAN EQUAL
+    |    GREATER_THAN
+    |    LTE
+    |    LESS_THAN
     ;
 bitwiseOrExpression
-    :    bitwiseXorExpression ('|' bitwiseXorExpression)*
-    |    SUPER ('|' bitwiseXorExpression)+
+    :    bitwiseXorExpression (BAR bitwiseXorExpression)*
+    |    SUPER (BAR bitwiseXorExpression)+
     ;
 bitwiseXorExpression
-    :    bitwiseAndExpression ('^' bitwiseAndExpression)*
-    |    SUPER ('^' bitwiseAndExpression)+
+    :    bitwiseAndExpression (CARET bitwiseAndExpression)*
+    |    SUPER (CARET bitwiseAndExpression)+
     ;
 bitwiseAndExpression
-    :    shiftExpression ('&' shiftExpression)*
-    |    SUPER ('&' shiftExpression)+
+    :    shiftExpression (AND shiftExpression)*
+    |    SUPER (AND shiftExpression)+
     ;
 bitwiseOperator
-    :    '&'
-    |    '^'
-    |    '|'
+    :    AND
+    |    CARET
+    |    BAR
     ;
 shiftExpression
     :    additiveExpression (shiftOperator additiveExpression)*
     |    SUPER (shiftOperator additiveExpression)+
     ;
 shiftOperator
-    :    '<<'
-    |    '>' '>' '>'
-    |    '>' '>'
+    :    LESS_THAN_LESS_THAN
+    |    GREATER_THAN GREATER_THAN GREATER_THAN
+    |    GREATER_THAN GREATER_THAN
     ;
 additiveExpression
     :    multiplicativeExpression (additiveOperator multiplicativeExpression)*
     |    SUPER (additiveOperator multiplicativeExpression)+
     ;
 additiveOperator
-    :    '+'
-    |    '-'
+    :    ADD
+    |    MINUS
     ;
 multiplicativeExpression
     :    unaryExpression (multiplicativeOperator unaryExpression)*
     |    SUPER (multiplicativeOperator unaryExpression)+
     ;
 multiplicativeOperator
-    :    '*'
-    |    '/'
-    |    '%'
-    |    '~/'
+    :    STAR
+    |    SLASH
+    |    PERCENT
+    |    TILDE_SLASH
     ;
 unaryExpression
     :    prefixOperator unaryExpression
@@ -576,13 +625,13 @@ prefixOperator
     |    tildeOperator
     ;
 minusOperator
-    :    '-'
+    :    MINUS
     ;
 negationOperator
-    :    '!'
+    :    NOT
     ;
 tildeOperator
-    :    '~'
+    :    TILDE
     ;
 awaitExpression
     :    AWAIT unaryExpression
@@ -595,7 +644,7 @@ postfixOperator
     :    incrementOperator
     ;
 selector
-    :    '!'
+    :    NOT
     |    assignableSelector
     |    argumentPart
     |    typeArguments
@@ -604,8 +653,8 @@ argumentPart
     :    typeArguments? arguments
     ;
 incrementOperator
-    :    '++'
-    |    '--'
+    :    ADD_ADD
+    |    MINUS_MINUS
     ;
 assignableExpression
     :    SUPER unconditionalAssignableSelector
@@ -616,13 +665,13 @@ assignableSelectorPart
     :    selector* assignableSelector
     ;
 unconditionalAssignableSelector
-    :    '[' expression ']'
-    |    '.' identifier
+    :    SQUARE_BRACJETS_OPEN expression SQUARE_BRACJETS_CLOSE
+    |    DOT identifier
     ;
 assignableSelector
     :    unconditionalAssignableSelector
-    |    '?.' identifier
-    |    '?' '[' expression ']'
+    |    QUESTION_MARK_DOT identifier
+    |    QUESTION_MARK SQUARE_BRACJETS_OPEN expression SQUARE_BRACJETS_CLOSE
     ;
 identifierNotFUNCTION
     :    IDENTIFIER
@@ -640,8 +689,8 @@ identifier
     |    FUNCTION // Built-in identifier that can be used as a type.
     ;
 qualifiedName
-    :    typeIdentifier '.' (identifier | NEW)
-    |    typeIdentifier '.' typeIdentifier '.' (identifier | NEW)
+    :    typeIdentifier DOT (identifier | NEW)
+    |    typeIdentifier DOT typeIdentifier DOT (identifier | NEW)
     ;
 typeIdentifier
     :    IDENTIFIER
@@ -658,7 +707,7 @@ typeTest
     :    isOperator typeNotVoid
     ;
 isOperator
-    :    IS '!'?
+    :    IS NOT?
     ;
 typeCast
     :    asOperator typeNotVoid
@@ -670,13 +719,13 @@ pattern
     :    logicalOrPattern
     ;
 patterns
-    :    pattern (',' pattern)* ','?
+    :    pattern (COMMA pattern)* COMMA?
     ;
 logicalOrPattern
-    :    logicalAndPattern ('||' logicalAndPattern)*
+    :    logicalAndPattern (BAR_BAR logicalAndPattern)*
     ;
 logicalAndPattern
-    :    relationalPattern ('&&' relationalPattern)*
+    :    relationalPattern (AND_AND relationalPattern)*
     ;
 relationalPattern
     :    (equalityOperator | relationalOperator) bitwiseOrExpression
@@ -701,67 +750,67 @@ castPattern
     :    primaryPattern AS type
     ;
 nullCheckPattern
-    :    primaryPattern '?'
+    :    primaryPattern QUESTION_MARK
     ;
 nullAssertPattern
-    :    primaryPattern '!'
+    :    primaryPattern NOT
     ;
 constantPattern
     :    booleanLiteral
     |    nullLiteral
-    |    '-'? numericLiteral
+    |    MINUS? numericLiteral
     |    stringLiteral
     |    symbolLiteral
     |    identifier
     |    qualifiedName
     |    constObjectExpression
-    |    CONST typeArguments? '[' elements? ']'
+    |    CONST typeArguments? SQUARE_BRACJETS_OPEN elements? SQUARE_BRACJETS_CLOSE
     |    CONST typeArguments? LBRACE elements? RBRACE
-    |    CONST '(' expression ')'
+    |    CONST PARENTHESES_OPEN expression PARENTHESES_CLOSE
     ;
 variablePattern
     :    (VAR | FINAL | FINAL? type)? identifier
     ;
 parenthesizedPattern
-    :    '(' pattern ')'
+    :    PARENTHESES_OPEN pattern PARENTHESES_CLOSE
     ;
 listPattern
-    :    typeArguments? '[' listPatternElements? ']'
+    :    typeArguments? SQUARE_BRACJETS_OPEN listPatternElements? SQUARE_BRACJETS_CLOSE
     ;
 listPatternElements
-    :    listPatternElement (',' listPatternElement)* ','?
+    :    listPatternElement (COMMA listPatternElement)* COMMA?
     ;
 listPatternElement
     :    pattern
     |    restPattern
     ;
 restPattern
-    :    '...' pattern?
+    :    ELLIPSIS pattern?
     ;
 mapPattern
     :    typeArguments? LBRACE mapPatternEntries? RBRACE
     ;
 mapPatternEntries
-    :    mapPatternEntry (',' mapPatternEntry)* ','?
+    :    mapPatternEntry (COMMA mapPatternEntry)* COMMA?
     ;
 mapPatternEntry
-    :    expression ':' pattern
-    |    '...'
+    :    expression COLON pattern
+    |    ELLIPSIS
     ;
 recordPattern
-    :    '(' patternFields? ')'
+    :    PARENTHESES_OPEN patternFields? PARENTHESES_CLOSE
     ;
 patternFields
-    :    patternField ( ',' patternField )* ','?
+    :    patternField ( COMMA patternField )* COMMA?
     ;
 patternField
-    :    (identifier? ':')? pattern
+    :    (identifier? COLON)? pattern
     ;
 objectPattern
-    :    typeName typeArguments? '(' patternFields? ')'
+    :    typeName typeArguments? PARENTHESES_OPEN patternFields? PARENTHESES_CLOSE
     ;
 patternVariableDeclaration
-    :    (FINAL | VAR) outerPattern '=' expression
+    :    (FINAL | VAR) outerPattern EQUAL expression
     ;
 outerPattern
     :    parenthesizedPattern
@@ -771,7 +820,7 @@ outerPattern
     |    objectPattern
     ;
 patternAssignment
-    : outerPattern '=' expression
+    : outerPattern EQUAL expression
     ;
 statements
     :    statement*
@@ -805,14 +854,14 @@ nonLabelledStatement
     |    expressionStatement
     ;
 expressionStatement
-    :    expression? ';'
+    :    expression? SEMICOLON
     ;
 localVariableDeclaration
-    :    metadata initializedVariableDeclaration ';'
-    |    metadata patternVariableDeclaration ';'
+    :    metadata initializedVariableDeclaration SEMICOLON
+    |    metadata patternVariableDeclaration SEMICOLON
     ;
 initializedVariableDeclaration
-    :    declaredIdentifier ('=' expression)? (',' initializedIdentifier)*
+    :    declaredIdentifier (EQUAL expression)? (COMMA initializedIdentifier)*
     ;
 localFunctionDeclaration
     :    metadata functionSignature functionBody
@@ -821,45 +870,45 @@ ifStatement
     :    ifCondition statement (ELSE statement)?
     ;
 ifCondition
-    :    IF '(' expression (CASE guardedPattern)? ')'
+    :    IF PARENTHESES_OPEN expression (CASE guardedPattern)? PARENTHESES_CLOSE
     ;
 forStatement
-    :    AWAIT? FOR '(' forLoopParts ')' statement
+    :    AWAIT? FOR PARENTHESES_OPEN forLoopParts PARENTHESES_CLOSE statement
     ;
 // TODO: Include `metadata` in the pattern form?
 forLoopParts
     :    metadata declaredIdentifier IN expression
     |    metadata identifier IN expression
-    |    forInitializerStatement expression? ';' expressionList?
+    |    forInitializerStatement expression? SEMICOLON expressionList?
     |    metadata (FINAL | VAR) outerPattern IN expression
     ;
 // The localVariableDeclaration cannot be CONST, but that can
 // be enforced in a later phase, and the grammar allows it.
 forInitializerStatement
     :    localVariableDeclaration
-    |    expression? ';'
+    |    expression? SEMICOLON
     ;
 whileStatement
-    :    WHILE '(' expression ')' statement
+    :    WHILE PARENTHESES_OPEN expression PARENTHESES_CLOSE statement
     ;
 doStatement
-    :    DO statement WHILE '(' expression ')' ';'
+    :    DO statement WHILE PARENTHESES_OPEN expression PARENTHESES_CLOSE SEMICOLON
     ;
 switchStatement
-    :    SWITCH '(' expression ')'
+    :    SWITCH PARENTHESES_OPEN expression PARENTHESES_CLOSE
          LBRACE switchStatementCase* switchStatementDefault? RBRACE
     ;
 switchStatementCase
-    :    label* CASE guardedPattern ':' statements
+    :    label* CASE guardedPattern COLON statements
     ;
 guardedPattern
     :    pattern (WHEN expression)?
     ;
 switchStatementDefault
-    :    label* DEFAULT ':' statements
+    :    label* DEFAULT COLON statements
     ;
 rethrowStatement
-    :    RETHROW ';'
+    :    RETHROW SEMICOLON
     ;
 tryStatement
     :    TRY block (onParts finallyPart? | finallyPart)
@@ -873,40 +922,40 @@ onParts
     |    onPart
     ;
 catchPart
-    :    CATCH '(' identifier (',' identifier)? ')'
+    :    CATCH PARENTHESES_OPEN identifier (COMMA identifier)? PARENTHESES_CLOSE
     ;
 finallyPart
     :    FINALLY block
     ;
 returnStatement
-    :    RETURN expression? ';'
+    :    RETURN expression? SEMICOLON
     ;
 label
-    :    identifier ':'
+    :    identifier COLON
     ;
 breakStatement
-    :    BREAK identifier? ';'
+    :    BREAK identifier? SEMICOLON
     ;
 continueStatement
-    :    CONTINUE identifier? ';'
+    :    CONTINUE identifier? SEMICOLON
     ;
 yieldStatement
-    :    YIELD expression ';'
+    :    YIELD expression SEMICOLON
     ;
 yieldEachStatement
-    :    YIELD '*' expression ';'
+    :    YIELD STAR expression SEMICOLON
     ;
 assertStatement
-    :    assertion ';'
+    :    assertion SEMICOLON
     ;
 assertion
-    :    ASSERT '(' expression (',' expression)? ','? ')'
+    :    ASSERT PARENTHESES_OPEN expression (COMMA expression)? COMMA? PARENTHESES_CLOSE
     ;
 libraryName
-    :    metadata LIBRARY dottedIdentifierList ';'
+    :    metadata LIBRARY dottedIdentifierList SEMICOLON
     ;
 dottedIdentifierList
-    :    identifier ('.' identifier)*
+    :    identifier (DOT identifier)*
     ;
 importOrExport
     :    libraryImport
@@ -916,23 +965,23 @@ libraryImport
     :    metadata importSpecification
     ;
 importSpecification
-    :    IMPORT configurableUri (DEFERRED? AS identifier)? combinator* ';'
+    :    IMPORT configurableUri (DEFERRED? AS identifier)? combinator* SEMICOLON
     ;
 combinator
     :    SHOW identifierList
     |    HIDE identifierList
     ;
 identifierList
-    :    identifier (',' identifier)*
+    :    identifier (COMMA identifier)*
     ;
 libraryExport
-    :    metadata EXPORT uri combinator* ';'
+    :    metadata EXPORT uri combinator* SEMICOLON
     ;
 partDirective
-    :    metadata PART uri ';'
+    :    metadata PART uri SEMICOLON
     ;
 partHeader
-    :    metadata PART OF (dottedIdentifierList | uri)';'
+    :    metadata PART OF (dottedIdentifierList | uri)SEMICOLON
     ;
 partDeclaration
     :    partHeader (metadata topLevelDefinition)* EOF
@@ -946,65 +995,65 @@ configurableUri
     :    uri configurationUri*
     ;
 configurationUri
-    :    IF '(' uriTest ')' uri
+    :    IF PARENTHESES_OPEN uriTest PARENTHESES_CLOSE uri
     ;
 uriTest
-    :    dottedIdentifierList ('==' stringLiteral)?
+    :    dottedIdentifierList (EQUAL_EQUAL stringLiteral)?
     ;
 type
-    :    functionType '?'?
+    :    functionType QUESTION_MARK?
     |    typeNotFunction
     ;
 typeNotVoid
-    :    functionType '?'?
-    |    recordType '?'?
+    :    functionType QUESTION_MARK?
+    |    recordType QUESTION_MARK?
     |    typeNotVoidNotFunction
     ;
 typeNotFunction
     :    typeNotVoidNotFunction
-    |    recordType '?'?
+    |    recordType QUESTION_MARK?
     |    VOID
     ;
 typeNotVoidNotFunction
-    :    typeName typeArguments? '?'?
-    |    FUNCTION '?'?
+    :    typeName typeArguments? QUESTION_MARK?
+    |    FUNCTION QUESTION_MARK?
     ;
 typeName
-    :    typeIdentifier ('.' typeIdentifier)?
+    :    typeIdentifier (DOT typeIdentifier)?
     ;
 typeArguments
-    :    '<' typeList '>'
+    :    LESS_THAN typeList GREATER_THAN
     ;
 typeList
-    :    type (',' type)*
+    :    type (COMMA type)*
     ;
 recordType
-    :    '(' ')'
-    |    '(' recordTypeFields ',' recordTypeNamedFields ')'
-    |    '(' recordTypeFields ','? ')'
-    |    '(' recordTypeNamedFields ')'
+    :    PARENTHESES_OPEN PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN recordTypeFields COMMA recordTypeNamedFields PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN recordTypeFields COMMA? PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN recordTypeNamedFields PARENTHESES_CLOSE
     ;
 recordTypeFields
-    :    recordTypeField (',' recordTypeField)*
+    :    recordTypeField (COMMA recordTypeField)*
     ;
 recordTypeField
     :    metadata type identifier?
     ;
 recordTypeNamedFields
-    :    LBRACE recordTypeNamedField (',' recordTypeNamedField)* ','? RBRACE
+    :    LBRACE recordTypeNamedField (COMMA recordTypeNamedField)* COMMA? RBRACE
     ;
 recordTypeNamedField
     :    metadata typedIdentifier
     ;
 typeNotVoidNotFunctionList
-    :    typeNotVoidNotFunction (',' typeNotVoidNotFunction)*
+    :    typeNotVoidNotFunction (COMMA typeNotVoidNotFunction)*
     ;
 typeAlias
-    :    TYPEDEF typeIdentifier typeParameters? '=' type ';'
+    :    TYPEDEF typeIdentifier typeParameters? EQUAL type SEMICOLON
     |    TYPEDEF functionTypeAlias
     ;
 functionTypeAlias
-    :    functionPrefix formalParameterPart ';'
+    :    functionPrefix formalParameterPart SEMICOLON
     ;
 functionPrefix
     :    type identifier
@@ -1014,7 +1063,7 @@ functionTypeTail
     :    FUNCTION typeParameters? parameterTypeList
     ;
 functionTypeTails
-    :    functionTypeTail '?'? functionTypeTails
+    :    functionTypeTail QUESTION_MARK? functionTypeTails
     |    functionTypeTail
     ;
 functionType
@@ -1022,13 +1071,13 @@ functionType
     |    typeNotFunction functionTypeTails
     ;
 parameterTypeList
-    :    '(' ')'
-    |    '(' normalParameterTypes ',' optionalParameterTypes ')'
-    |    '(' normalParameterTypes ','? ')'
-    |    '(' optionalParameterTypes ')'
+    :    PARENTHESES_OPEN PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN normalParameterTypes COMMA optionalParameterTypes PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN normalParameterTypes COMMA? PARENTHESES_CLOSE
+    |    PARENTHESES_OPEN optionalParameterTypes PARENTHESES_CLOSE
     ;
 normalParameterTypes
-    :    normalParameterType (',' normalParameterType)*
+    :    normalParameterType (COMMA normalParameterType)*
     ;
 normalParameterType
     :    metadata typedIdentifier
@@ -1039,10 +1088,10 @@ optionalParameterTypes
     |    namedParameterTypes
     ;
 optionalPositionalParameterTypes
-    :    '[' normalParameterTypes ','? ']'
+    :    SQUARE_BRACJETS_OPEN normalParameterTypes COMMA? SQUARE_BRACJETS_CLOSE
     ;
 namedParameterTypes
-    :    LBRACE namedParameterType (',' namedParameterType)* ','? RBRACE
+    :    LBRACE namedParameterType (COMMA namedParameterType)* COMMA? RBRACE
     ;
 namedParameterType
     :    metadata REQUIRED? typedIdentifier
@@ -1053,10 +1102,10 @@ typedIdentifier
 constructorDesignation
     :    typeIdentifier
     |    qualifiedName
-    |    typeName typeArguments ('.' (identifier | NEW))?
+    |    typeName typeArguments (DOT (identifier | NEW))?
     ;
 symbolLiteral
-    :    '#' (operator | (identifier ('.' identifier)*) | VOID)
+    :    HASH (operator | (identifier (DOT identifier)*) | VOID)
     ;
 // Not used in the specification (needed here for <uri>).
 singleStringWithoutInterpolation
@@ -1148,462 +1197,4 @@ builtInIdentifier
     |    SET
     |    STATIC
     |    TYPEDEF
-    ;
-// ---------------------------------------- Lexer rules.
-fragment
-LETTER
-    :    'a' .. 'z'
-    |    'A' .. 'Z'
-    ;
-fragment
-DIGIT
-    :    '0' .. '9'
-    ;
-fragment
-EXPONENT
-    :    ('e' | 'E') ('+' | '-')? DIGIT+
-    ;
-fragment
-HEX_DIGIT
-    :    ('a' | 'b' | 'c' | 'd' | 'e' | 'f')
-    |    ('A' | 'B' | 'C' | 'D' | 'E' | 'F')
-    |    DIGIT
-    ;
-// Reserved words.
-ASSERT
-    :    'assert'
-    ;
-BREAK
-    :    'break'
-    ;
-CASE
-    :    'case'
-    ;
-CATCH
-    :    'catch'
-    ;
-CLASS
-    :    'class'
-    ;
-CONST
-    :    'const'
-    ;
-CONTINUE
-    :    'continue'
-    ;
-DEFAULT
-    :    'default'
-    ;
-DO
-    :    'do'
-    ;
-ELSE
-    :    'else'
-    ;
-ENUM
-    :    'enum'
-    ;
-EXTENDS
-    :    'extends'
-    ;
-FALSE
-    :    'false'
-    ;
-FINAL
-    :    'final'
-    ;
-FINALLY
-    :    'finally'
-    ;
-FOR
-    :    'for'
-    ;
-IF
-    :    'if'
-    ;
-IN
-    :    'in'
-    ;
-IS
-    :    'is'
-    ;
-NEW
-    :    'new'
-    ;
-NULL
-    :    'null'
-    ;
-RETHROW
-    :    'rethrow'
-    ;
-RETURN
-    :    'return'
-    ;
-SUPER
-    :    'super'
-    ;
-SWITCH
-    :    'switch'
-    ;
-THIS
-    :    'this'
-    ;
-THROW
-    :    'throw'
-    ;
-TRUE
-    :    'true'
-    ;
-TRY
-    :    'try'
-    ;
-VAR
-    :    'var'
-    ;
-VOID
-    :    'void'
-    ;
-WHILE
-    :    'while'
-    ;
-WITH
-    :    'with'
-    ;
-// Built-in identifiers.
-ABSTRACT
-    :    'abstract'
-    ;
-AS
-    :    'as'
-    ;
-COVARIANT
-    :    'covariant'
-    ;
-DEFERRED
-    :    'deferred'
-    ;
-DYNAMIC
-    :    'dynamic'
-    ;
-EXPORT
-    :    'export'
-    ;
-EXTENSION
-    :    'extension'
-    ;
-EXTERNAL
-    :    'external'
-    ;
-FACTORY
-    :    'factory'
-    ;
-FUNCTION
-    :    'Function'
-    ;
-GET
-    :    'get'
-    ;
-IMPLEMENTS
-    :    'implements'
-    ;
-IMPORT
-    :    'import'
-    ;
-INTERFACE
-    :    'interface'
-    ;
-LATE
-    :    'late'
-    ;
-LIBRARY
-    :    'library'
-    ;
-OPERATOR
-    :    'operator'
-    ;
-MIXIN
-    :    'mixin'
-    ;
-PART
-    :    'part'
-    ;
-REQUIRED
-    :    'required'
-    ;
-SET
-    :    'set'
-    ;
-STATIC
-    :    'static'
-    ;
-TYPEDEF
-    :    'typedef'
-    ;
-// "Contextual keywords".
-AWAIT
-    :    'await'
-    ;
-YIELD
-    :    'yield'
-    ;
-// Other words used in the grammar.
-ASYNC
-    :    'async'
-    ;
-HIDE
-    :    'hide'
-    ;
-OF
-    :    'of'
-    ;
-ON
-    :    'on'
-    ;
-SHOW
-    :    'show'
-    ;
-SYNC
-    :    'sync'
-    ;
-WHEN
-    :    'when'
-    ;
-// Lexical tokens that are not words.
-NUMBER
-    :    DIGIT+ '.' DIGIT+ EXPONENT?
-    |    DIGIT+ EXPONENT?
-    |    '.' DIGIT+ EXPONENT?
-    ;
-HEX_NUMBER
-    :    '0x' HEX_DIGIT+
-    |    '0X' HEX_DIGIT+
-    ;
-RAW_SINGLE_LINE_STRING
-    :    'r' '\'' (~('\'' | '\r' | '\n'))* '\''
-    |    'r' '"' (~('"' | '\r' | '\n'))* '"'
-    ;
-RAW_MULTI_LINE_STRING
-    :    'r' '"""' (.)*? '"""'
-    |    'r' '\'\'\'' (.)*? '\'\'\''
-    ;
-
-fragment
-SIMPLE_STRING_INTERPOLATION
-    :    '$' IDENTIFIER_NO_DOLLAR
-    ;
-
-fragment
-ESCAPE_SEQUENCE
-    :    '\\n'
-    |    '\\r'
-    |    '\\b'
-    |    '\\t'
-    |    '\\v'
-    |    '\\x' HEX_DIGIT HEX_DIGIT
-    |    '\\u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT
-    |    '\\u{' HEX_DIGIT_SEQUENCE '}'
-    ;
-
-fragment
-HEX_DIGIT_SEQUENCE
-    :    HEX_DIGIT HEX_DIGIT? HEX_DIGIT?
-         HEX_DIGIT? HEX_DIGIT? HEX_DIGIT?
-    ;
-
-fragment
-STRING_CONTENT_COMMON
-    :    ~('\\' | '\'' | '"' | '$' | '\r' | '\n')
-    |    ESCAPE_SEQUENCE
-    |    '\\' ~('n' | 'r' | 'b' | 't' | 'v' | 'x' | 'u' | '\r' | '\n')
-    |    SIMPLE_STRING_INTERPOLATION
-    ;
-
-fragment
-STRING_CONTENT_SQ
-    :    STRING_CONTENT_COMMON
-    |    '"'
-    ;
-
-SINGLE_LINE_STRING_SQ_BEGIN_END
-    :    '\'' STRING_CONTENT_SQ* '\''
-    ;
-
-SINGLE_LINE_STRING_SQ_BEGIN_MID
-    :    '\'' STRING_CONTENT_SQ* '${' { enterBraceSingleQuote(); }
-    ;
-
-SINGLE_LINE_STRING_SQ_MID_MID
-    :    { currentBraceLevel(BRACE_SINGLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_SQ* '${'
-         { enterBraceSingleQuote(); }
-    ;
-
-SINGLE_LINE_STRING_SQ_MID_END
-    :    { currentBraceLevel(BRACE_SINGLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_SQ* '\''
-    ;
-
-fragment
-STRING_CONTENT_DQ
-    :    STRING_CONTENT_COMMON
-    |    '\''
-    ;
-
-SINGLE_LINE_STRING_DQ_BEGIN_END
-    :    '"' STRING_CONTENT_DQ* '"'
-    ;
-
-SINGLE_LINE_STRING_DQ_BEGIN_MID
-    :    '"' STRING_CONTENT_DQ* '${' { enterBraceDoubleQuote(); }
-    ;
-
-SINGLE_LINE_STRING_DQ_MID_MID
-    :    { currentBraceLevel(BRACE_DOUBLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_DQ* '${'
-         { enterBraceDoubleQuote(); }
-    ;
-
-SINGLE_LINE_STRING_DQ_MID_END
-    :    { currentBraceLevel(BRACE_DOUBLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_DQ* '"'
-    ;
-
-fragment
-QUOTES_SQ
-    :
-    |    '\''
-    |    '\'\''
-    ;
-
-// Read string contents, which may be almost anything, but stop when seeing
-// '\'\'\'' and when seeing '${'. We do this by allowing all other
-// possibilities including escapes, simple interpolation, and fewer than
-// three '\''.
-fragment
-STRING_CONTENT_TSQ
-    :    QUOTES_SQ
-         (STRING_CONTENT_COMMON | '"' | '\r' | '\n' | '\\\r' | '\\\n')
-    ;
-
-MULTI_LINE_STRING_SQ_BEGIN_END
-    :    '\'\'\'' STRING_CONTENT_TSQ* '\'\'\''
-    ;
-
-MULTI_LINE_STRING_SQ_BEGIN_MID
-    :    '\'\'\'' STRING_CONTENT_TSQ* QUOTES_SQ '${'
-         { enterBraceThreeSingleQuotes(); }
-    ;
-
-MULTI_LINE_STRING_SQ_MID_MID
-    :    { currentBraceLevel(BRACE_THREE_SINGLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_TSQ* QUOTES_SQ '${'
-         { enterBraceThreeSingleQuotes(); }
-    ;
-
-MULTI_LINE_STRING_SQ_MID_END
-    :    { currentBraceLevel(BRACE_THREE_SINGLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_TSQ* '\'\'\''
-    ;
-
-fragment
-QUOTES_DQ
-    :
-    |    '"'
-    |    '""'
-    ;
-
-// Read string contents, which may be almost anything, but stop when seeing
-// '"""' and when seeing '${'. We do this by allowing all other possibilities
-// including escapes, simple interpolation, and fewer-than-three '"'.
-fragment
-STRING_CONTENT_TDQ
-    :    QUOTES_DQ
-         (STRING_CONTENT_COMMON | '\'' | '\r' | '\n' | '\\\r' | '\\\n')
-    ;
-
-MULTI_LINE_STRING_DQ_BEGIN_END
-    :    '"""' STRING_CONTENT_TDQ* '"""'
-    ;
-
-MULTI_LINE_STRING_DQ_BEGIN_MID
-    :    '"""' STRING_CONTENT_TDQ* QUOTES_DQ '${'
-         { enterBraceThreeDoubleQuotes(); }
-    ;
-
-MULTI_LINE_STRING_DQ_MID_MID
-    :    { currentBraceLevel(BRACE_THREE_DOUBLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_TDQ* QUOTES_DQ '${'
-         { enterBraceThreeDoubleQuotes(); }
-    ;
-
-MULTI_LINE_STRING_DQ_MID_END
-    :    { currentBraceLevel(BRACE_THREE_DOUBLE) }?
-         { exitBrace(); } '}' STRING_CONTENT_TDQ* '"""'
-    ;
-
-LBRACE
-    :    '{' { enterBrace(); }
-    ;
-
-RBRACE
-    :    { currentBraceLevel(BRACE_NORMAL) }? { exitBrace(); } '}'
-    ;
-
-fragment
-IDENTIFIER_START_NO_DOLLAR
-    :    LETTER
-    |    '_'
-    ;
-
-fragment
-IDENTIFIER_PART_NO_DOLLAR
-    :    IDENTIFIER_START_NO_DOLLAR
-    |    DIGIT
-    ;
-
-fragment
-IDENTIFIER_NO_DOLLAR
-    :    IDENTIFIER_START_NO_DOLLAR IDENTIFIER_PART_NO_DOLLAR*
-    ;
-
-fragment
-IDENTIFIER_START
-    :    IDENTIFIER_START_NO_DOLLAR
-    |    '$'
-    ;
-
-fragment
-IDENTIFIER_PART
-    :    IDENTIFIER_START
-    |    DIGIT
-    ;
-
-SCRIPT_TAG
-    :    '#!' (~('\r' | '\n'))* NEWLINE
-    ;
-
-IDENTIFIER
-    :    IDENTIFIER_START IDENTIFIER_PART*
-    ;
-
-SINGLE_LINE_COMMENT
-    :    '//' (~('\r' | '\n'))* NEWLINE?
-         -> skip
-    ;
-
-MULTI_LINE_COMMENT
-    :    '/*' (MULTI_LINE_COMMENT | .)*? '*/'
-         -> skip
-    ;
-
-fragment
-NEWLINE
-    :    ('\r' | '\n' | '\r\n')
-    ;
-
-
-
-WS
-    :    (' ' | '\t' | '\r' | '\n')+
-         -> skip
     ;
